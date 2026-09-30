@@ -10,7 +10,6 @@ connect();
 
 app.use(express.json());
 
-
 app.post("/employees", async function (req, res) {
   const employee = new Employee(req.body);
   try {
@@ -21,14 +20,9 @@ app.post("/employees", async function (req, res) {
   }
 });
 
-
-
 app.get("/employees", async function (req, res) {
-
   const employees = await Employee.find();
-
   res.json(employees);
-
 });
 
 
