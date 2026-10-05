@@ -2,7 +2,8 @@ const express = require("express");
 
 const connect = require("./connect");
 
-const Employee = require("./model/employeSchema");
+// both schemas live in one file; we design them in class
+const { Post, Comment } = require("./model/schema");
 
 const app = express();
 
@@ -10,21 +11,47 @@ connect();
 
 app.use(express.json());
 
-app.post("/employees", async function (req, res) {
-  const employee = new Employee(req.body);
+//post
+
+app.post("/posts", async function (req, res) {
   try {
-    const result = await employee.save();
-    res.json(result);
+    const post = await Post.create(req.body);
+    res.status(201).json(post);
   } catch (error) {
-    res.send(error.message)
+    res.status(400).json({ message: error.message });
   }
 });
 
-app.get("/employees", async function (req, res) {
-  const employees = await Employee.find();
-  res.json(employees);
+app.get("/posts", async function (req, res) {
+  try {
+    const posts = await Post.find()
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
+/* ---------------- Comment ---------------- */
+
+// the body needs to carry the post's _id
+app.post("/comments", async function (req, res) {
+  try {
+    const comment = await Comment.create(req.body);
+    res.status(201).json(comment);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// add .populate("post") once the post reference exists
+app.get("/comments", async function (req, res) {
+  try {
+    const comments = await Comment.find()
+    res.json(comments);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 app.listen(3000, function () {
   console.log("Server running on port 3000");

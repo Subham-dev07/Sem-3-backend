@@ -1,11 +1,15 @@
-const mongoose=require('mongoose');
-const createBookingSchema = require('./model/bookingSchema');
+const mongoose = require("mongoose");
 
-function connect(){
-    mongoose.connect('mongodb://localhost:27017/mydb')
-  .then(() => {
-    console.log('Connected To DB!')
-    createBookingSchema()
-});
+// same local mongo, bas db ka naam change kiya hai (mydb -> blogdb)
+function connect() {
+  mongoose
+    .connect("mongodb://localhost:27017/blogdb")
+    .then(() => {
+      console.log("Connected To DB!");
+    })
+    .catch((err) => {
+      console.log("DB connection failed", err.message);
+    });
 }
-module.exports=connect
+
+module.exports = connect;
