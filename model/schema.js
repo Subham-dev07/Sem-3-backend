@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { ref } = require("node:process");
 
 // How to write a field:
 //   name:  String                                  type only
@@ -13,12 +14,18 @@ const mongoose = require("mongoose");
 
 // Post: title, content, author, createdAt
 const postSchema = new mongoose.Schema({
-
+  title:{type:String},
+  content:{type:String},
+  author:{type:String},
+  createdAt:{type:Date,default:Date.now}
 });
 
 // Comment: text, post (ref "Post"), author, createdAt
 const commentSchema = new mongoose.Schema({
-
+  text:{type:String},
+  author:{type:String},
+  createdAt:{type:Date,default:Date.now},
+  post:{type:mongoose.Schema.Types.ObjectId,ref:"Post"}
 });
 
 const Post = mongoose.model("Post", postSchema);
