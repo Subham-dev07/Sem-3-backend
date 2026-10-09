@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HTTP Chat</title>
+</head>
+<body>
+
+  <h2>Chat Application</h2>
+
+  <select id="user">
+    <option value="rahul">Rahul</option>
+    <option value="priya">Priya</option>
+  </select>
+
+  <div id="messages"></div>
+
+  <input type="text" id="message" placeholder="Enter message">
+  <button onclick="sendMessage()">Send</button>
+
+  <script>
+    async function sendMessage() {
+      const user = document.getElementById("user").value;
+      const message = document.getElementById("message").value;
+
+      await fetch(`/${user}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message })
+      });
+
+      document.getElementById("message").value = "";
+      getMessages();
+    }
+
+    async function getMessages() {
+      const response = await fetch("/messages");
+      const data = await response.json();
+
+      document.getElementById("messages").innerHTML =
+        data.map(msg => `<p>${msg.sender}: ${msg.message}</p>`).join("");
+    }
+
+    getMessages();
+
+    // setInterval(getMessages, 2000);
+
+  </script>
+
+</body>
+</html>
