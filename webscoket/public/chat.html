@@ -7,29 +7,26 @@
   </head>
   <body>
     <div id="chatbox"></div>
-    <input type="text" id="name" placeholder="name"/>
-    <input type="text" placeholder="message">
-    <button id="btn">join valorant</button>
-    <button id="message">send Message</button>
+    <input type="text" id="name" placeholder="Name Here" />
+    <input type="text" id="message" placeholder="Message Here" />
+    <button id="btn">send Message</button>
     <script src="/socket.io/socket.io.js"></script>
     <script>
       const socket = io();
-      const btn=document.getElementById("btn")
-        const message=document.getElementById("message")
+      const btn = document.getElementById("btn");
       socket.on("connect", () => {
         console.log("Client Id", socket.id);
       });
       btn.addEventListener('click',()=>{
-        socket.emit("joinRoom","valorant")
+        const name=document.getElementById('name').value;
+        const message=document.getElementById('message').value;
+        socket.emit('sendMessage',{name,message})
       })
-      message.addEventListener('click',()=>{
-        socket.emit('sendMessage',{name:'valorant',message:'welcome to valorant server'})
-      })
-      
-    socket.on("serverReply",(data)=>{
+      socket.on("serverReply", (data) => {
         console.log(data);
         
-    })
+      });
+
 
       
     </script>
