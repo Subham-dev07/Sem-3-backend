@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h1>Webrtc</h1>
+    <video id="localVideo" autoplay  muted width="500"></video>
+    <video id="remoteVideo" autoplay  width="500"></video>
+    <button id="camera">Start Camera</button>
+    <button id="stop">Stop Camera</button>
+    <button id="mute">Mute</button>
+    <button id="toggleCamera">onCamera</button>
+    <button id="call">Call</button>
+    <script>
+      const camera = document.getElementById("camera");
+      const stop = document.getElementById("stop");
+      const mute = document.getElementById("mute");
+      const toggleCamera = document.getElementById("toggleCamera");
+      const localVideo = document.getElementById("localVideo");
+      const remoteVideo=document.getElementById("remoteVideo"); 
+      const call=document.getElementById("call")
+      let stream = null;
+      camera.addEventListener("click", async () => {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+          localVideo.srcObject = stream;
+        } catch (error) {
+          console.log("error starting audio/video", error);
+        }
+      });
+
+
+
+
+      stop.addEventListener("click", () => {
+        if (!stream) return;
+
+        stream.getTracks().forEach((track) => track.stop());
+        localVideo.srcObject = null;
+        stream = null;
+
+        mute.innerText = "Mute";
+        toggleCamera.innerText = "onCamera";
+      });
+      mute.addEventListener("click", () => {
+        if (!stream) return;
+        const audioTrack = stream.getAudioTracks()[0];
+        audioTrack.enabled = !audioTrack.enabled;
+        mute.innerText = audioTrack.enabled ? "Mute" : "unMute";
+      });
+
+      toggleCamera.addEventListener("click", () => {
+        if (!stream) return;
+        const videoTrack = stream.getVideoTracks()[0];
+        videoTrack.enabled = !videoTrack.enabled;
+        toggleCamera.innerText = videoTrack.enabled ? "offCamera" : "onCamera";
+      });
+    </script>
+  </body>
+</html>

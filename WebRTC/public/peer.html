@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Webrtc</h1>
+    <video id="video" autoplay  playsinline muted width="500"></video>
+    <video id="remoteVideo" autoplay playsinline width="500"></video>
+    <button id="camera">Start Camera</button>
+    <button id="call">Call</button>
+    <button id="stop">Stop Camera</button>
+    <button id="mute">Mute</button>
+    <button id="oncamera">onCamera</button>
+    <script>
+        const camera=document.getElementById("camera")
+        const stop=document.getElementById('stop');
+        const video=document.getElementById('video');
+        const mute=document.getElementById("mute");
+        const onCamera=document.getElementById("oncamera");
+        const call=document.getElementById("call");
+        const remoteVideo=document.getElementById('remoteVideo')
+        let stream;
+        let pc=null;
+
+        // Server  connection
+        const socket=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host);
+        function send(data){
+            socket.send(JSON.stringify(data));
+        }
+
+        // Call for connection
+        function createPC(){
+            pc=new RTCPeerConnection();
+            pc.onicecandidate=(e)=>{
+                if(e.candidate) send({type:"candidate",candidate:e.candidate})
+            }
+            pc.ontrack=(e)=>{
+                remoteVideo.srcObject=e.streams[0]
+            }
+            stream.getTracks().forEach((track)=>{
+                pc.addTrack(track,stream)
+            })
+        }
+
+        camera.addEventListener('click',async()=>{
+            try {
+                 stream=await navigator.mediaDevices.getUserMedia({
+                    video:true,
+                    audio:true,
+                })
+                video.srcObject=stream;
+            } catch (error) {
+                console.log("error starting audio/video");
+            }
+        })
+
+        // create offer when making first call
+        call.addEventListener('click',async()=>{
+            createPC();
+            const offer=await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            send({type:"offer",offer:offer});
+        })
+
+        // handling answer from differnet server
+        socket.onmessage=async(event)=>{
+            const data=JSON.parse(event.data);
+
+            if(data.type==="offer"){
+                createPC();
+                await pc.setRemoteDescription(data.offer);
+                const answer=await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                send({type:"answer",answer:answer});
+            }
+            else if(data.type==="answer"){
+                await pc.setRemoteDescription(data.answer);
+            }
+            else if(data.type==="candidate"){
+                await pc.addIceCandidate(data.candidate);
+            }
+        }
+
+        stop.addEventListener('click',()=>{
+            let tracks=stream.getTracks();
+            tracks.forEach((track)=>{
+                track.stop()
+            })
+            video.srcObject=null;
+            if(pc) pc.close();
+        })
+
+        mute.addEventListener('click',()=>{
+            if(mute.innerText==="Mute"){
+                stream.getAudioTracks()[0].enabled=false;
+                mute.innerText="unMute"
+            }else {
+                mute.innerText="Mute"
+                stream.getAudioTracks()[0].enabled=true;
+            }
+        })
+
+        onCamera.addEventListener('click',function(){
+            stream.getVideoTracks()[0].enabled=false;
+        })
+    </script>
+</body>
+</html>
