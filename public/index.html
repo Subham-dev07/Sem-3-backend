@@ -1,66 +1,131 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-  </head>
-  <body>
+</head>
+<body>
     <h1>Webrtc</h1>
-    <video id="localVideo" autoplay  muted width="500"></video>
-    <video id="remoteVideo" autoplay  width="500"></video>
+    <video id="video" autoplay  playsinline muted width="500"></video>
+    <video id="remoteVideo" autoplay playsinline width="500"></video>
     <button id="camera">Start Camera</button>
+    <button id="call">Call</button>
     <button id="stop">Stop Camera</button>
     <button id="mute">Mute</button>
-    <button id="toggleCamera">onCamera</button>
-    <button id="call">Call</button>
+    <button id="oncamera">Camera Off</button>
     <script>
-      const camera = document.getElementById("camera");
-      const stop = document.getElementById("stop");
-      const mute = document.getElementById("mute");
-      const toggleCamera = document.getElementById("toggleCamera");
-      const localVideo = document.getElementById("localVideo");
-      const remoteVideo=document.getElementById("remoteVideo"); 
-      const call=document.getElementById("call")
-      let stream = null;
-      camera.addEventListener("click", async () => {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-          });
-          localVideo.srcObject = stream;
-        } catch (error) {
-          console.log("error starting audio/video", error);
+        const camera=document.getElementById("camera")
+        const stop=document.getElementById('stop');
+        const video=document.getElementById('video');
+        const mute=document.getElementById("mute");
+        const onCamera=document.getElementById("oncamera");
+        const call=document.getElementById("call");
+        const remoteVideo=document.getElementById('remoteVideo')
+        let stream=null;
+        let pc=null;
+        let pendingCandidates=[];
+
+
+        const socket=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host);
+        function send(data){
+            socket.send(JSON.stringify(data));
         }
-      });
 
 
+        async function startCamera(){
+            if(stream) return stream;
+            stream=await navigator.mediaDevices.getUserMedia({
+                video:true,
+                audio:true,
+            })
+            video.srcObject=stream;
+            return stream;
+        }
+
+        // Call for connection
+        function createPC(){
+            if(pc) pc.close();
+            pendingCandidates=[];
+            pc=new RTCPeerConnection({
+                iceServers:[{urls:"stun:stun.l.google.com:19302"}]
+            });
+            pc.onicecandidate=(e)=>{
+                if(e.candidate) send({type:"candidate",candidate:e.candidate})
+            }
+            pc.ontrack=(e)=>{
+                remoteVideo.srcObject=e.streams[0]
+            }
+            stream.getTracks().forEach((track)=>{
+                pc.addTrack(track,stream)
+            })
+        }
 
 
-      stop.addEventListener("click", () => {
-        if (!stream) return;
+        async function flushCandidates(){
+            for(const c of pendingCandidates){
+                await pc.addIceCandidate(c);
+            }
+            pendingCandidates=[];
+        }
 
-        stream.getTracks().forEach((track) => track.stop());
-        localVideo.srcObject = null;
-        stream = null;
+        camera.addEventListener('click',startCamera)
 
-        mute.innerText = "Mute";
-        toggleCamera.innerText = "onCamera";
-      });
-      mute.addEventListener("click", () => {
-        if (!stream) return;
-        const audioTrack = stream.getAudioTracks()[0];
-        audioTrack.enabled = !audioTrack.enabled;
-        mute.innerText = audioTrack.enabled ? "Mute" : "unMute";
-      });
 
-      toggleCamera.addEventListener("click", () => {
-        if (!stream) return;
-        const videoTrack = stream.getVideoTracks()[0];
-        videoTrack.enabled = !videoTrack.enabled;
-        toggleCamera.innerText = videoTrack.enabled ? "offCamera" : "onCamera";
-      });
+        call.addEventListener('click',async()=>{
+            await startCamera();
+            createPC();
+            const offer=await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            send({type:"offer",offer:offer});
+        })
+
+
+        socket.onmessage=async(event)=>{
+            const data=JSON.parse(event.data);
+            if(data.type==="offer"){
+                await startCamera();
+                createPC();
+                await pc.setRemoteDescription(data.offer);
+                await flushCandidates();
+                const answer=await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                send({type:"answer",answer:answer});
+            }
+            else if(data.type==="answer"){
+                await pc.setRemoteDescription(data.answer);
+                await flushCandidates();
+            }
+            else if(data.type==="candidate"){
+                if(pc && pc.remoteDescription){
+                    await pc.addIceCandidate(data.candidate);
+                }else{
+                    pendingCandidates.push(data.candidate);
+                }
+            }
+        }
+
+        stop.addEventListener('click',()=>{
+            if(stream){
+                stream.getTracks().forEach((track)=>track.stop())
+                stream=null;
+            }
+            video.srcObject=null;
+        })
+
+        mute.addEventListener('click',()=>{
+            if(!stream) return;
+            const audio=stream.getAudioTracks()[0];
+            audio.enabled=!audio.enabled;
+            mute.innerText=audio.enabled?"Mute":"unMute";
+        })
+
+        onCamera.addEventListener('click',()=>{
+            if(!stream) return;
+            const videoTrack=stream.getVideoTracks()[0];
+            videoTrack.enabled=!videoTrack.enabled;
+            onCamera.innerText=videoTrack.enabled?"Camera Off":"Camera On";
+        })
     </script>
-  </body>
+</body>
 </html>

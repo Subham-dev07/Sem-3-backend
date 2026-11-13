@@ -49,11 +49,10 @@
         };
         stream.getTracks().forEach((track) => pc1.addTrack(track, stream));
         const offer = await pc1.createOffer();
-        await pc1.setLocalDescription(offer);
-        console.log("pc1", pc1.signalingState);
+        await pc1.setLocalDescription(offer)
 
         await pc2.setRemoteDescription(pc1.localDescription);
-        console.log("pc2", pc2.signalingState);
+   
         const answer = await pc2.createAnswer();
         await pc2.setLocalDescription(answer);
         await pc1.setRemoteDescription(pc2.localDescription);

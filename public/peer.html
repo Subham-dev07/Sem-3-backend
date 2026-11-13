@@ -13,7 +13,7 @@
     <button id="call">Call</button>
     <button id="stop">Stop Camera</button>
     <button id="mute">Mute</button>
-    <button id="oncamera">onCamera</button>
+    <button id="oncamera">Camera Off</button>
     <script>
         const camera=document.getElementById("camera")
         const stop=document.getElementById('stop');
@@ -22,18 +22,34 @@
         const onCamera=document.getElementById("oncamera");
         const call=document.getElementById("call");
         const remoteVideo=document.getElementById('remoteVideo')
-        let stream;
+        let stream=null;
         let pc=null;
+        let pendingCandidates=[];
 
-        // Server  connection
+
         const socket=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host);
         function send(data){
             socket.send(JSON.stringify(data));
         }
 
+
+        async function startCamera(){
+            if(stream) return stream;
+            stream=await navigator.mediaDevices.getUserMedia({
+                video:true,
+                audio:true,
+            })
+            video.srcObject=stream;
+            return stream;
+        }
+
         // Call for connection
         function createPC(){
-            pc=new RTCPeerConnection();
+            if(pc) pc.close();
+            pendingCandidates=[];
+            pc=new RTCPeerConnection({
+                iceServers:[{urls:"stun:stun.l.google.com:19302"}]
+            });
             pc.onicecandidate=(e)=>{
                 if(e.candidate) send({type:"candidate",candidate:e.candidate})
             }
@@ -45,66 +61,70 @@
             })
         }
 
-        camera.addEventListener('click',async()=>{
-            try {
-                 stream=await navigator.mediaDevices.getUserMedia({
-                    video:true,
-                    audio:true,
-                })
-                video.srcObject=stream;
-            } catch (error) {
-                console.log("error starting audio/video");
-            }
-        })
 
-        // create offer when making first call
+        async function flushCandidates(){
+            for(const c of pendingCandidates){
+                await pc.addIceCandidate(c);
+            }
+            pendingCandidates=[];
+        }
+
+        camera.addEventListener('click',startCamera)
+
+
         call.addEventListener('click',async()=>{
+            await startCamera();
             createPC();
             const offer=await pc.createOffer();
             await pc.setLocalDescription(offer);
             send({type:"offer",offer:offer});
         })
 
-        // handling answer from differnet server
+
         socket.onmessage=async(event)=>{
             const data=JSON.parse(event.data);
-
             if(data.type==="offer"){
+                await startCamera();
                 createPC();
                 await pc.setRemoteDescription(data.offer);
+                await flushCandidates();
                 const answer=await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 send({type:"answer",answer:answer});
             }
             else if(data.type==="answer"){
                 await pc.setRemoteDescription(data.answer);
+                await flushCandidates();
             }
             else if(data.type==="candidate"){
-                await pc.addIceCandidate(data.candidate);
+                if(pc && pc.remoteDescription){
+                    await pc.addIceCandidate(data.candidate);
+                }else{
+                    pendingCandidates.push(data.candidate);
+                }
             }
         }
 
         stop.addEventListener('click',()=>{
-            let tracks=stream.getTracks();
-            tracks.forEach((track)=>{
-                track.stop()
-            })
+            if(stream){
+                stream.getTracks().forEach((track)=>track.stop())
+                stream=null;
+            }
             video.srcObject=null;
-            if(pc) pc.close();
         })
 
         mute.addEventListener('click',()=>{
-            if(mute.innerText==="Mute"){
-                stream.getAudioTracks()[0].enabled=false;
-                mute.innerText="unMute"
-            }else {
-                mute.innerText="Mute"
-                stream.getAudioTracks()[0].enabled=true;
-            }
+            if(!stream) return;
+            const audio=stream.getAudioTracks()[0];
+            audio.enabled=!audio.enabled;
+            mute.innerText=audio.enabled?"Mute":"unMute";
         })
 
-        onCamera.addEventListener('click',function(){
-            stream.getVideoTracks()[0].enabled=false;
+        onCamera.addEventListener('click',()=>{
+            if(!stream) return;
+            const videoTrack=stream.getVideoTracks()[0];
+            videoTrack.enabled=!videoTrack.enabled;
+            onCamera.innerText=videoTrack.enabled?"Camera Off":"Camera On";
         })
     </script>
 </body>
